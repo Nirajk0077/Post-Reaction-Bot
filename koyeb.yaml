@@ -1,0 +1,7 @@
+type: worker
+name: telegram-reaction-bot
+env:
+  TELEGRAM_BOT_TOKEN:
+    value: "" # Set this in the Koyeb dashboard
+build:
+  dockerfile: Dockerfile
