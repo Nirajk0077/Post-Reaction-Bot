@@ -1,7 +1,17 @@
-type: worker
+type: web
 name: telegram-reaction-bot
 env:
   TELEGRAM_BOT_TOKEN:
     value: "" # Set this in the Koyeb dashboard
 build:
   dockerfile: Dockerfile
+ports:
+  - port: 8080
+    protocol: http
+health_checks:
+  - port: 8080
+    path: /
+    interval: 300
+    timeout: 5
+    restart_limit: 3
+
