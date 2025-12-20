@@ -136,11 +136,11 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
 
         try:
             target_message = await message.reply_text(
-                "Hɪɴᴅɪ:- 
+                """Hɪɴᴅɪ:-
 Is Pᴏsᴛ Kᴇ Bᴀᴀʀᴇ Mᴇɪɴ Aᴀᴘᴋᴀ Kʏᴀ Kʜᴀʏᴀʟ Hᴀɪ? Nᴇᴇᴄʜᴇ Rᴇᴀᴄᴛɪᴏɴ Dᴇɪɴ! 👇
 
 Eɴɢʟɪsʜ:-
-Wʜᴀᴛ ᴅᴏ ʏᴏᴜ ᴛʜɪɴᴋ ᴏғ ᴛʜɪs ᴘᴏsᴛ? Lᴇᴀᴠᴇ ʏᴏᴜʀ ʀᴇᴀᴄᴛɪᴏɴ ʙᴇʟᴏᴡ! 👇",
+Wʜᴀᴛ ᴅᴏ ʏᴏᴜ ᴛʜɪɴᴋ ᴏғ ᴛʜɪs ᴘᴏsᴛ? Lᴇᴀᴠᴇ ʏᴏᴜʀ ʀᴇᴀᴄᴛɪᴏɴ ʙᴇʟᴏᴡ! 👇""",
                 reply_markup=get_keyboard({}, share_url=post_link)
             )
         except Exception as e:
