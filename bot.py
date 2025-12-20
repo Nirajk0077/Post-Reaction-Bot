@@ -1,5 +1,7 @@
 import logging
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from collections import defaultdict
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -19,7 +21,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Define the 4 reaction emojis
-REACTIONS = ["👍", "❤️", "🔥", "👏"]
+REACTIONS = ["👍", "👎", "🔥", "❤️"]
+
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+
+def start_health_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    logger.info(f"Starting health check server on port {port}")
+    server.serve_forever()
 
 
 def get_keyboard(reactions_data):
@@ -162,16 +178,20 @@ def main():
     # Get the token from environment variable or ask user to input it
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
     
+    # Start health check server in background thread
+    health_thread = threading.Thread(target=start_health_server, daemon=True)
+    health_thread.start()
+    
     persistence = PicklePersistence(filepath="bot_data.pickle")
     
     application = Application.builder().token(token).persistence(persistence).build()
 
     # 1. Handler for Channel Posts
-    application.add_handler(MessageHandler(filters.ChatType.CHANNEL & (~filters.UpdateType.EDITED_MESSAGE) & (~filters.UpdateType.EDITED_CHANNEL_POST), add_reaction_buttons))
+    application.add_handler(MessageHandler(filters.ChatType.CHANNEL & filters.UpdateType.CHANNEL_POST, add_reaction_buttons))
     
     # 2. Handler for Group Messages
     # We use reply_text approach now
-    application.add_handler(MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND) & (~filters.UpdateType.EDITED_MESSAGE), add_reaction_buttons))
+    application.add_handler(MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND) & filters.UpdateType.MESSAGE, add_reaction_buttons))
     
     # 3. Callback Query Handler
     application.add_handler(CallbackQueryHandler(handle_reaction_click))
