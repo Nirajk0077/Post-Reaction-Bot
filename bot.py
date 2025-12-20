@@ -47,11 +47,12 @@ def start_health_server():
     server.serve_forever()
 
 
-def get_keyboard(reactions_data, share_url=None):
+def get_keyboard(reactions_data, share_url=None, comment_url=None):
     """
     Generates the inline keyboard based on current reaction counts.
     reactions_data: dict of {emoji: set(user_ids)}
     share_url: Optional URL to be used in the Share button.
+    comment_url: Optional URL to be used in the Comment button.
     
     Layout:
     [ R1, R2, R3, R4 ] (Top)
@@ -73,9 +74,11 @@ def get_keyboard(reactions_data, share_url=None):
 
     # 3. Comment Button
     comment_row = []
-    if share_url:
-        comment_url = f"{share_url}?comment=1"
-        comment_row.append(InlineKeyboardButton("Comment 💬", url=comment_url))
+    # Use provided comment_url, or fallback to share_url + ?comment=1 if available
+    final_comment_url = comment_url if comment_url else (f"{share_url}?comment=1" if share_url else None)
+
+    if final_comment_url:
+        comment_row.append(InlineKeyboardButton("Comment 💬", url=final_comment_url))
 
     # 4. Link Buttons (Bottom Row)
     support_group_url = os.environ.get("SUPPORT_GROUP_URL", "tg://resolve?domain=OOSSupport")
@@ -141,6 +144,14 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
         else:
             post_link = message.link
     
+    # Determine the Comment URL
+    # For channels, we rely on the fallback (share_url + ?comment=1) which works fine.
+    # For groups, linking to the channel post with ?comment=1 causes "removed from discussion group" error.
+    # So we link to the message thread in the group itself.
+    comment_url = None
+    if not is_channel and message.link:
+        comment_url = f"{message.link}?thread={message.message_id}"
+
     # We need to decide where to attach the buttons.
     # For channels: The bot (as admin) can edit the channel post to add buttons.
     # For groups: The bot CANNOT edit a user's message. It must reply with a new message containing the buttons.
@@ -177,7 +188,7 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             target_message = await message.reply_text(
                 "Rate this post 👇",
-                reply_markup=get_keyboard({}, share_url=post_link)
+                reply_markup=get_keyboard({}, share_url=post_link, comment_url=comment_url)
             )
         except Exception as e:
             logger.error(f"Failed to send reply in group {chat_id}: {e}")
@@ -197,10 +208,10 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
     if key not in context.bot_data["post_reactions"]:
         context.bot_data["post_reactions"][key] = {emoji: set() for emoji in REACTIONS}
 
-    # Save metadata (share_url) for persistence
+    # Save metadata (share_url and comment_url) for persistence
     if "post_meta" not in context.bot_data:
         context.bot_data["post_meta"] = {}
-    context.bot_data["post_meta"][key] = {"share_url": post_link}
+    context.bot_data["post_meta"][key] = {"share_url": post_link, "comment_url": comment_url}
 
     # For channels, we perform the edit now that data is initialized
     if is_channel:
@@ -208,7 +219,7 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
             await context.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=target_message_id,
-                reply_markup=get_keyboard(context.bot_data["post_reactions"][key], share_url=post_link)
+                reply_markup=get_keyboard(context.bot_data["post_reactions"][key], share_url=post_link, comment_url=comment_url)
             )
         except Exception as e:
             logger.error(f"Failed to add buttons to channel post {target_message_id} in chat {chat_id}: {e}")
@@ -244,11 +255,19 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot_data["post_meta"] = {}
 
     meta = context.bot_data["post_meta"].get(key, {})
-    post_link = meta.get("share_url")
+    share_url = meta.get("share_url")
+    comment_url = meta.get("comment_url")
 
     # Fallback if metadata is missing (e.g. old posts)
-    if not post_link:
-        post_link = message.link
+    if not share_url:
+        share_url = message.link
+
+    # Try to reconstruct comment_url for groups if missing
+    if not comment_url and message.chat.type != "channel":
+        # In groups, the bot's message (message) is a reply to the original post (reply_to_message)
+        original_msg = message.reply_to_message
+        if original_msg and original_msg.link:
+            comment_url = f"{original_msg.link}?thread={original_msg.message_id}"
     
     if "post_reactions" not in context.bot_data:
         context.bot_data["post_reactions"] = {}
@@ -276,7 +295,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer(text=notification_text)
     
     # Update the keyboard
-    new_markup = get_keyboard(reactions_map, share_url=post_link)
+    new_markup = get_keyboard(reactions_map, share_url=share_url, comment_url=comment_url)
     
     try:
         await query.edit_message_reply_markup(reply_markup=new_markup)
