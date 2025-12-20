@@ -38,18 +38,26 @@ def start_health_server():
     server.serve_forever()
 
 
-def get_keyboard(reactions_data):
+def get_keyboard(reactions_data, share_url=None):
     """
     Generates the inline keyboard based on current reaction counts.
     reactions_data: dict of {emoji: set(user_ids)}
+    share_url: Optional URL to be used in the Share button.
     
     Layout:
-    [ Info ]
+    [ Info, Share ]
     [ R1, R2, R3, R4 ]
     [ Support Group, Join Channel ]
     """
     # 1. Info Button (Top)
-    info_button = [InlineKeyboardButton("ℹ️ Info", callback_data="info_click")]
+    info_button = InlineKeyboardButton("ℹ️ Info", callback_data="info_click")
+    
+    top_row = [info_button]
+    
+    # Add Share Button if URL is provided
+    if share_url:
+        share_button = InlineKeyboardButton("Share ⤴️", url=f"https://t.me/share/url?url={share_url}")
+        top_row.append(share_button)
     
     # 2. Reaction Buttons (Middle)
     reaction_buttons = []
@@ -64,11 +72,11 @@ def get_keyboard(reactions_data):
     channel_url = os.environ.get("CHANNEL_URL", "https://t.me/OOSHub")
     
     link_buttons = [
-        InlineKeyboardButton("🔄 Support Chat", url=support_group_url),
+        InlineKeyboardButton("🔄 Support Chat ", url=support_group_url),
         InlineKeyboardButton("☸️ Channel", url=channel_url)
     ]
 
-    return InlineKeyboardMarkup([info_button, reaction_buttons, link_buttons])
+    return InlineKeyboardMarkup([top_row, reaction_buttons, link_buttons])
 
 
 async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,6 +96,12 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
 
     chat_id = message.chat_id
     
+    # Construct the share URL (post link)
+    # message.link is available in recent python-telegram-bot versions.
+    # If not, we try to construct it manually for public channels: t.me/username/message_id
+    # But message.link is safest.
+    post_link = message.link
+    
     # We need to decide where to attach the buttons.
     # For channels: The bot (as admin) can edit the channel post to add buttons.
     # For groups: The bot CANNOT edit a user's message. It must reply with a new message containing the buttons.
@@ -98,6 +112,25 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
         # In channels, we try to edit the message itself.
         target_message = message
         # We need to ensure we can edit it. If it's a new post, we should be able to.
+        
+        # NOTE: To make "Join Channel" persist on forward, we append it to the text.
+        # This solves the "Forward karne pe button na hate" (partially).
+        # We only do this for channels to avoid spamming groups.
+        channel_url = os.environ.get("CHANNEL_URL", "https://t.me/telegram")
+        try:
+            # We need to respect existing text/caption.
+            # If text, edit text. If caption, edit caption.
+            original_text = message.text or message.caption or ""
+            # Don't duplicate if already there
+            if channel_url not in original_text:
+                new_text = f"{original_text}\n\nJoin: {channel_url}"
+                if message.text:
+                    await message.edit_text(new_text)
+                elif message.caption:
+                    await message.edit_caption(new_text)
+        except Exception as e:
+            logger.warning(f"Failed to append link to text in {chat_id}: {e}")
+
     else:
         # In groups, we reply to the message.
         # But we don't want to reply to every single message in a busy group unless necessary.
@@ -105,7 +138,7 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             target_message = await message.reply_text(
                 "React:",
-                reply_markup=get_keyboard({})
+                reply_markup=get_keyboard({}, share_url=post_link)
             )
         except Exception as e:
             logger.error(f"Failed to send reply in group {chat_id}: {e}")
@@ -131,7 +164,7 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
             await context.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=target_message_id,
-                reply_markup=get_keyboard(context.bot_data["post_reactions"][key])
+                reply_markup=get_keyboard(context.bot_data["post_reactions"][key], share_url=post_link)
             )
         except Exception as e:
             logger.error(f"Failed to add buttons to channel post {target_message_id} in chat {chat_id}: {e}")
@@ -165,6 +198,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_id = message.message_id
     key = f"{chat_id}_{message_id}"
     
+    # We also need to get the original post link if possible to keep the Share button working
+    # However, message.link points to the message itself.
+    # We can try to preserve the existing keyboard's URL if strictly needed,
+    # but simplest is to pass message.link again.
+    post_link = message.link
+    # Note: For group replies, message.link is the link to the *reply*, not the original user message.
+    # But that's acceptable for sharing the reaction interface.
+    
     if "post_reactions" not in context.bot_data:
         context.bot_data["post_reactions"] = {}
     
@@ -191,7 +232,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer(text=notification_text)
     
     # Update the keyboard
-    new_markup = get_keyboard(reactions_map)
+    new_markup = get_keyboard(reactions_map, share_url=post_link)
     
     try:
         await query.edit_message_reply_markup(reply_markup=new_markup)
