@@ -116,7 +116,7 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
         # NOTE: To make "Join Channel" persist on forward, we append it to the text.
         # This solves the "Forward karne pe button na hate" (partially).
         # We only do this for channels to avoid spamming groups.
-        channel_url = os.environ.get("CHANNEL_URL", "https://t.me/telegram")
+        channel_url = os.environ.get("CHANNEL_URL", "https://t.me/OOSHub")
         try:
             # We need to respect existing text/caption.
             # If text, edit text. If caption, edit caption.
