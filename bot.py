@@ -104,6 +104,10 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
     if message.chat.type == "private":
         return
 
+    # Filter out non-text posts (e.g., Photos, Videos)
+    if not message.text:
+        return
+
     chat_id = message.chat_id
     
     # Construct the share URL (post link)
