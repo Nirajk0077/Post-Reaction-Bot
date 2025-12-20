@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Define the 4 reaction emojis
-REACTIONS = ["👍", "❤️", "🔥", "👏"]
+REACTIONS = ["👍", "👎", "🔥", "❤️"]
 
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
