@@ -107,8 +107,8 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
     if message.chat.type == "private":
         return
 
-    # Filter out non-text posts (e.g., Photos, Videos)
-    if not (message.text or message.caption):
+    # Filter out posts that are not text, photo, video, or document
+    if not (message.text or message.caption or message.photo or message.video or message.document):
         return
 
     # Deduplicate media groups (albums)
