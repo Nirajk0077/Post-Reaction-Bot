@@ -74,7 +74,8 @@ def get_keyboard(reactions_data, share_url=None):
     # 3. Comment Button
     comment_row = []
     if share_url:
-        comment_row.append(InlineKeyboardButton("Comment 💬", url=share_url))
+        comment_url = f"{share_url}?comment=1"
+        comment_row.append(InlineKeyboardButton("Comment 💬", url=comment_url))
 
     # 4. Link Buttons (Bottom Row)
     support_group_url = os.environ.get("SUPPORT_GROUP_URL", "tg://resolve?domain=OOSSupport")
@@ -123,7 +124,22 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
     chat_id = message.chat_id
     
     # Construct the share URL (post link)
-    post_link = message.link
+    if is_channel:
+        post_link = message.link
+    else:
+        # In groups, if it's a forward from a channel, try to link to the original post
+        if message.forward_from_chat and message.forward_from_chat.type == "channel":
+            origin_chat = message.forward_from_chat
+            origin_msg_id = message.forward_from_message_id
+            if origin_chat.username:
+                post_link = f"https://t.me/{origin_chat.username}/{origin_msg_id}"
+            else:
+                # Private channel link format: https://t.me/c/ID/MSG_ID
+                # ID usually starts with -100, we need to strip it
+                chat_id_str = str(origin_chat.id).replace("-100", "")
+                post_link = f"https://t.me/c/{chat_id_str}/{origin_msg_id}"
+        else:
+            post_link = message.link
     
     # We need to decide where to attach the buttons.
     # For channels: The bot (as admin) can edit the channel post to add buttons.
@@ -181,6 +197,11 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
     if key not in context.bot_data["post_reactions"]:
         context.bot_data["post_reactions"][key] = {emoji: set() for emoji in REACTIONS}
 
+    # Save metadata (share_url) for persistence
+    if "post_meta" not in context.bot_data:
+        context.bot_data["post_meta"] = {}
+    context.bot_data["post_meta"][key] = {"share_url": post_link}
+
     # For channels, we perform the edit now that data is initialized
     if is_channel:
         try:
@@ -218,8 +239,16 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_id = message.message_id
     key = f"{chat_id}_{message_id}"
     
-    # Get the original post link if possible to keep the Share button working
-    post_link = message.link
+    # Retrieve the original post link from metadata if available
+    if "post_meta" not in context.bot_data:
+        context.bot_data["post_meta"] = {}
+
+    meta = context.bot_data["post_meta"].get(key, {})
+    post_link = meta.get("share_url")
+
+    # Fallback if metadata is missing (e.g. old posts)
+    if not post_link:
+        post_link = message.link
     
     if "post_reactions" not in context.bot_data:
         context.bot_data["post_reactions"] = {}
