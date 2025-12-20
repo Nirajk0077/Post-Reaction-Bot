@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Define the 4 reaction emojis
-REACTIONS = ["👍", "👎", "🔥", "❤️"]
+REACTIONS = ["👍", "❤️", "🔥", "👏"]
 
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -42,15 +42,33 @@ def get_keyboard(reactions_data):
     """
     Generates the inline keyboard based on current reaction counts.
     reactions_data: dict of {emoji: set(user_ids)}
+    
+    Layout:
+    [ Info ]
+    [ R1, R2, R3, R4 ]
+    [ Support Group, Join Channel ]
     """
-    buttons = []
+    # 1. Info Button (Top)
+    info_button = [InlineKeyboardButton("ℹ️ Info", callback_data="info_click")]
+    
+    # 2. Reaction Buttons (Middle)
+    reaction_buttons = []
     for emoji in REACTIONS:
         count = len(reactions_data.get(emoji, []))
         text = f"{emoji} {count}" if count > 0 else emoji
-        # Callback data format: "reaction|{emoji}"
-        buttons.append(InlineKeyboardButton(text, callback_data=f"reaction|{emoji}"))
+        reaction_buttons.append(InlineKeyboardButton(text, callback_data=f"reaction|{emoji}"))
+    
+    # 3. Link Buttons (Bottom)
+    # Using environment variables or default placeholders
+    support_group_url = os.environ.get("SUPPORT_GROUP_URL", "https://t.me/telegram")
+    channel_url = os.environ.get("CHANNEL_URL", "https://t.me/telegram")
+    
+    link_buttons = [
+        InlineKeyboardButton("Support Group Join", url=support_group_url),
+        InlineKeyboardButton("Join Channel", url=channel_url)
+    ]
 
-    return InlineKeyboardMarkup([buttons])
+    return InlineKeyboardMarkup([info_button, reaction_buttons, link_buttons])
 
 
 async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -119,14 +137,23 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
             logger.error(f"Failed to add buttons to channel post {target_message_id} in chat {chat_id}: {e}")
 
 
-async def handle_reaction_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Handles the button click, toggles the reaction for the user, and updates the buttons.
+    Handles button clicks (Reactions and Info).
     """
     query = update.callback_query
     user = query.from_user
-    
     data = query.data
+    
+    # Handle Info Button
+    if data == "info_click":
+        await query.answer(
+            text="Is post ke baare mein aapka kya khayal hai? Neeche reaction dein! 👇",
+            show_alert=True
+        )
+        return
+
+    # Handle Reaction Buttons
     if not data.startswith("reaction|"):
         await query.answer()
         return
@@ -194,7 +221,7 @@ def main():
     application.add_handler(MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND) & filters.UpdateType.MESSAGE, add_reaction_buttons))
     
     # 3. Callback Query Handler
-    application.add_handler(CallbackQueryHandler(handle_reaction_click))
+    application.add_handler(CallbackQueryHandler(handle_callback))
 
     print("Bot is starting... Press Ctrl+C to stop.")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
