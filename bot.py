@@ -69,7 +69,7 @@ def get_keyboard(reactions_data, share_url=None):
     
     link_buttons = [
         InlineKeyboardButton("🔄 Support Chat", url=support_group_url),
-        InlineKeyboardButton("💠 Channel", url=channel_url)
+        InlineKeyboardButton("💠 Join Channel", url=channel_url)
     ]
     
     keyboard = []
