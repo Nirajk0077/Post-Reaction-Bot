@@ -60,11 +60,11 @@ def get_keyboard(reactions_data):
     
     # 3. Link Buttons (Bottom)
     # Using environment variables or default placeholders
-    support_group_url = os.environ.get("SUPPORT_GROUP_URL", "https://t.me/telegram")
-    channel_url = os.environ.get("CHANNEL_URL", "https://t.me/telegram")
+    support_group_url = os.environ.get("SUPPORT_GROUP_URL", "https://t.me/OOSCommunityy")
+    channel_url = os.environ.get("CHANNEL_URL", "https://t.me/OOSHub")
     
     link_buttons = [
-        InlineKeyboardButton("Support Group Join", url=support_group_url),
+        InlineKeyboardButton("Support Chat", url=support_group_url),
         InlineKeyboardButton("Join Channel", url=channel_url)
     ]
 
