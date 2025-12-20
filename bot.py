@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 # Define the 4 reaction emojis
 REACTIONS = ["👍", "👎", "🔥", "❤️"]
 
+INFO_TEXT = """Hɪɴᴅɪ:-
+Is Pᴏsᴛ Kᴇ Bᴀᴀʀᴇ Mᴇɪɴ Aᴀᴘᴋᴀ Kʏᴀ Kʜᴀʏᴀʟ Hᴀɪ? Nᴇᴇᴄʜᴇ Rᴇᴀᴄᴛɪᴏɴ Dᴇɪɴ! 👇
+
+Eɴɢʟɪsʜ:-
+Wʜᴀᴛ ᴅᴏ ʏᴏᴜ ᴛʜɪɴᴋ ᴏғ ᴛʜɪs ᴘᴏsᴛ? Lᴇᴀᴠᴇ ʏᴏᴜʀ ʀᴇᴀᴄᴛɪᴏɴ ʙᴇʟᴏᴡ! 👇"""
+
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -73,6 +79,8 @@ def get_keyboard(reactions_data, share_url=None):
     ]
     
     keyboard = []
+    # Add Info button at the very top (Row 0)
+    keyboard.append([InlineKeyboardButton("Info ℹ️", callback_data="info")])
     keyboard.append(reaction_buttons)
     if middle_row:
         keyboard.append(middle_row)
@@ -136,11 +144,7 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
 
         try:
             target_message = await message.reply_text(
-                """Hɪɴᴅɪ:-
-Is Pᴏsᴛ Kᴇ Bᴀᴀʀᴇ Mᴇɪɴ Aᴀᴘᴋᴀ Kʏᴀ Kʜᴀʏᴀʟ Hᴀɪ? Nᴇᴇᴄʜᴇ Rᴇᴀᴄᴛɪᴏɴ Dᴇɪɴ! 👇
-
-Eɴɢʟɪsʜ:-
-Wʜᴀᴛ ᴅᴏ ʏᴏᴜ ᴛʜɪɴᴋ ᴏғ ᴛʜɪs ᴘᴏsᴛ? Lᴇᴀᴠᴇ ʏᴏᴜʀ ʀᴇᴀᴄᴛɪᴏɴ ʙᴇʟᴏᴡ! 👇""",
+                "Rate this post 👇",
                 reply_markup=get_keyboard({}, share_url=post_link)
             )
         except Exception as e:
@@ -181,6 +185,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     data = query.data
     
+    # Handle Info Button
+    if data == "info":
+        await query.answer(text=INFO_TEXT, show_alert=True)
+        return
+
     # Handle Reaction Buttons
     if not data.startswith("reaction|"):
         await query.answer()
