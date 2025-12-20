@@ -70,7 +70,7 @@ def get_keyboard(reactions_data, share_url=None):
         middle_row.append(share_button)
     
     # 3. Link Buttons (Bottom Row)
-    support_group_url = os.environ.get("SUPPORT_GROUP_URL", "https://t.me/OOSCommunityy")
+    support_group_url = os.environ.get("SUPPORT_GROUP_URL", "https://t.me/OOSSupport")
     channel_url = os.environ.get("CHANNEL_URL", "https://t.me/OOSHub")
     
     link_buttons = [
