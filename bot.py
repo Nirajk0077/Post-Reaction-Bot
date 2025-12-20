@@ -45,14 +45,12 @@ def get_keyboard(reactions_data, share_url=None):
     share_url: Optional URL to be used in the Share button.
     
     Layout:
-    [ Info, Share ]
+    [ Share ] (if available)
     [ R1, R2, R3, R4 ]
     [ Support Group, Join Channel ]
     """
-    # 1. Info Button (Top)
-    info_button = InlineKeyboardButton("ℹ️ Info", callback_data="info_click")
-    
-    top_row = [info_button]
+    # 1. Share Button (Top)
+    top_row = []
     
     # Add Share Button if URL is provided
     if share_url:
@@ -72,11 +70,17 @@ def get_keyboard(reactions_data, share_url=None):
     channel_url = os.environ.get("CHANNEL_URL", "https://t.me/OOSHub")
     
     link_buttons = [
-        InlineKeyboardButton("🔄 Support Chat ", url=support_group_url),
+        InlineKeyboardButton("🔄 Support Chat", url=support_group_url),
         InlineKeyboardButton("☸️ Channel", url=channel_url)
     ]
+    
+    keyboard = []
+    if top_row:
+        keyboard.append(top_row)
+    keyboard.append(reaction_buttons)
+    keyboard.append(link_buttons)
 
-    return InlineKeyboardMarkup([top_row, reaction_buttons, link_buttons])
+    return InlineKeyboardMarkup(keyboard)
 
 
 async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -116,7 +120,7 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
         # NOTE: To make "Join Channel" persist on forward, we append it to the text.
         # This solves the "Forward karne pe button na hate" (partially).
         # We only do this for channels to avoid spamming groups.
-        channel_url = os.environ.get("CHANNEL_URL", "https://t.me/OOSHub")
+        channel_url = os.environ.get("CHANNEL_URL", "https://t.me/telegram")
         try:
             # We need to respect existing text/caption.
             # If text, edit text. If caption, edit caption.
@@ -178,14 +182,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     data = query.data
     
-    # Handle Info Button
-    if data == "info_click":
-        await query.answer(
-            text="Is post ke baare mein aapka kya khayal hai? Neeche reaction dein! 👇",
-            show_alert=True
-        )
-        return
-
     # Handle Reaction Buttons
     if not data.startswith("reaction|"):
         await query.answer()
