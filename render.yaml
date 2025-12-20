@@ -1,8 +1,10 @@
 services:
-  - type: worker
+  - type: web
     name: telegram-reaction-bot
     env: docker
-    plan: free # Note: Render Free tier does not support Workers, this might need to be upgraded or changed to a web service with a dummy port if on free tier.
+    plan: free
+    healthCheckPath: /
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+
