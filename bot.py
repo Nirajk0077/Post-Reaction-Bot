@@ -2,7 +2,7 @@ import logging
 import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from collections import defaultdict
+from collections import defaultdict, deque
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 # Define the 4 reaction emojis
 REACTIONS = ["👍", "👎", "🔥", "❤️"]
+
+# Track processed media groups to prevent duplicate buttons on albums
+processed_media_groups = deque(maxlen=1000)
 
 INFO_TEXT = """Hɪɴᴅɪ:-
 Is Pᴏsᴛ Kᴇ Bᴀᴀʀᴇ Mᴇɪɴ Aᴀᴘᴋᴀ Kʏᴀ Kʜᴀʏᴀʟ Hᴀɪ? Nᴇᴇᴄʜᴇ Rᴇᴀᴄᴛɪᴏɴ Dᴇɪɴ! 👇
@@ -105,8 +108,14 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     # Filter out non-text posts (e.g., Photos, Videos)
-    if not message.text:
+    if not (message.text or message.caption):
         return
+
+    # Deduplicate media groups (albums)
+    if message.media_group_id:
+        if message.media_group_id in processed_media_groups:
+            return
+        processed_media_groups.append(message.media_group_id)
 
     chat_id = message.chat_id
     
