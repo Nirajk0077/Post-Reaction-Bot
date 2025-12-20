@@ -125,7 +125,15 @@ async def add_reaction_buttons(update: Update, context: ContextTypes.DEFAULT_TYP
             logger.warning(f"Failed to append link to text in {chat_id}: {e}")
 
     else:
-        # In groups, we reply to the message.
+        # In groups, we ONLY reply if the message is forwarded from a channel.
+        # Check for forward_from_chat type being 'channel'
+        is_channel_forward = False
+        if message.forward_from_chat and message.forward_from_chat.type == "channel":
+            is_channel_forward = True
+        
+        if not is_channel_forward:
+            return
+
         try:
             target_message = await message.reply_text(
                 "React:",
@@ -236,8 +244,9 @@ def main():
     application.add_handler(MessageHandler(filters.ChatType.CHANNEL & filters.UpdateType.CHANNEL_POST, add_reaction_buttons))
     
     # 2. Handler for Group Messages
-    # We use reply_text approach now
-    application.add_handler(MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND) & filters.UpdateType.MESSAGE, add_reaction_buttons))
+    # We use reply_text approach now. We also filter for FORWARDED messages only,
+    # and further check specifically for channel forwards inside the handler.
+    application.add_handler(MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND) & filters.UpdateType.MESSAGE & filters.FORWARDED, add_reaction_buttons))
     
     # 3. Callback Query Handler
     application.add_handler(CallbackQueryHandler(handle_callback))
