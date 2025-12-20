@@ -19,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Define the 4 reaction emojis
-REACTIONS = ["👍", "👎", "🔥", "❤️"]
+REACTIONS = ["👍", "❤️", "🔥", "👏"]
 
 
 def get_keyboard(reactions_data):
@@ -132,7 +132,12 @@ async def handle_reaction_click(update: Update, context: ContextTypes.DEFAULT_TY
     reactions_map = context.bot_data["post_reactions"][key]
     user_id = user.id
     
-    # Toggle logic
+    # Single reaction logic: Remove user from ALL other reactions first
+    for emoji, user_set in reactions_map.items():
+        if emoji != selected_emoji and user_id in user_set:
+            user_set.remove(user_id)
+    
+    # Toggle logic for the selected emoji
     if user_id in reactions_map[selected_emoji]:
         reactions_map[selected_emoji].remove(user_id)
         notification_text = f"Removed {selected_emoji}"
@@ -177,3 +182,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
