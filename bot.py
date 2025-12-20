@@ -66,13 +66,17 @@ def get_keyboard(reactions_data, share_url=None):
         text = f"{emoji} {count}" if count > 0 else emoji
         reaction_buttons.append(InlineKeyboardButton(text, callback_data=f"reaction|{emoji}"))
     
-    # 2. Share Button (Middle Row)
-    middle_row = []
+    # 2. Top Row (Info + Share)
+    top_row = [InlineKeyboardButton("Info ℹ️", callback_data="info")]
     if share_url:
-        share_button = InlineKeyboardButton("Share ⤴️", url=f"https://t.me/share/url?url={share_url}")
-        middle_row.append(share_button)
-    
-    # 3. Link Buttons (Bottom Row)
+        top_row.append(InlineKeyboardButton("Share ⤴️", url=f"https://t.me/share/url?url={share_url}"))
+
+    # 3. Comment Button
+    comment_row = []
+    if share_url:
+        comment_row.append(InlineKeyboardButton("Comment 💬", url=share_url))
+
+    # 4. Link Buttons (Bottom Row)
     support_group_url = os.environ.get("SUPPORT_GROUP_URL", "tg://resolve?domain=OOSSupport")
     channel_url = os.environ.get("CHANNEL_URL", "tg://resolve?domain=OOSHub")
     
@@ -82,11 +86,10 @@ def get_keyboard(reactions_data, share_url=None):
     ]
     
     keyboard = []
-    # Add Info button at the very top (Row 0)
-    keyboard.append([InlineKeyboardButton("Info ℹ️", callback_data="info")])
+    keyboard.append(top_row)
     keyboard.append(reaction_buttons)
-    if middle_row:
-        keyboard.append(middle_row)
+    if comment_row:
+        keyboard.append(comment_row)
     keyboard.append(link_buttons)
 
     return InlineKeyboardMarkup(keyboard)
