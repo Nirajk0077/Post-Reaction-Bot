@@ -64,8 +64,8 @@ def get_keyboard(reactions_data):
     channel_url = os.environ.get("CHANNEL_URL", "https://t.me/OOSHub")
     
     link_buttons = [
-        InlineKeyboardButton("Support Chat", url=support_group_url),
-        InlineKeyboardButton("Join Channel", url=channel_url)
+        InlineKeyboardButton("🔄 Support Chat", url=support_group_url),
+        InlineKeyboardButton("☸️ Channel", url=channel_url)
     ]
 
     return InlineKeyboardMarkup([info_button, reaction_buttons, link_buttons])
