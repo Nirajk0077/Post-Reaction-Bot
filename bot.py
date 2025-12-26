@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import threading
+import pickle
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from collections import defaultdict, deque
 
@@ -316,6 +317,73 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"Failed to update reactions for message {message_id} in chat {chat_id}: {e}")
 
 
+def prune_bot_data(filepath="bot_data.pickle"):
+    """
+    Prunes old post data from bot_data.pickle to prevent memory bloat and OOM crashes.
+    Keeps only the last 50 posts per chat.
+    """
+    if not os.path.exists(filepath):
+        return
+
+    try:
+        logger.info("Checking bot data for pruning...")
+        with open(filepath, "rb") as f:
+            data = pickle.load(f)
+
+        # persistence stores data under 'bot_data' key
+        bot_data = data.get("bot_data", {})
+        if not bot_data:
+            return
+
+        reactions = bot_data.get("post_reactions", {})
+        meta = bot_data.get("post_meta", {})
+
+        initial_count = len(reactions)
+
+        # Group keys by chat_id
+        chat_posts = defaultdict(list)
+        for key in list(reactions.keys()):
+            try:
+                # Key format: "{chat_id}_{message_id}"
+                parts = key.rsplit("_", 1)
+                if len(parts) != 2:
+                    continue
+                chat_id_str, msg_id_str = parts
+                chat_id = int(chat_id_str)
+                msg_id = int(msg_id_str)
+
+                chat_posts[chat_id].append((msg_id, key))
+            except ValueError:
+                continue
+
+        keys_to_remove = []
+        MAX_POSTS_PER_CHAT = 50
+
+        for chat_id, posts in chat_posts.items():
+            # Sort by message_id descending (newest first)
+            posts.sort(key=lambda x: x[0], reverse=True)
+
+            # Identify old posts
+            if len(posts) > MAX_POSTS_PER_CHAT:
+                for _, key in posts[MAX_POSTS_PER_CHAT:]:
+                    keys_to_remove.append(key)
+
+        if keys_to_remove:
+            logger.info(f"Pruning: Removing {len(keys_to_remove)} old posts from bot_data.")
+            for key in keys_to_remove:
+                reactions.pop(key, None)
+                meta.pop(key, None)
+
+            # Save back to file
+            with open(filepath, "wb") as f:
+                pickle.dump(data, f)
+        else:
+            logger.info("No pruning needed.")
+
+    except Exception as e:
+        logger.warning(f"Failed to prune bot data: {e}")
+
+
 def main():
     """Start the bot."""
     # Get the token from environment variable or ask user to input it
@@ -325,6 +393,9 @@ def main():
         logger.critical("Bot token not found. Set TELEGRAM_BOT_TOKEN environment variable.")
         sys.exit(1)
     
+    # Prune old data before loading to prevent OOM
+    prune_bot_data()
+
     # Start health check server in background thread
     health_thread = threading.Thread(target=start_health_server, daemon=True)
     health_thread.start()
