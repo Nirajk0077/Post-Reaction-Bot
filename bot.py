@@ -17,7 +17,9 @@ from telegram.ext import (
 
 # Enable logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+    stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,10 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"OK")
+
+    def log_message(self, format, *args):
+        # Override to suppress default logging to stderr, or redirect to logger
+        logger.info(f"Health check request: {self.client_address[0]}")
 
 
 def start_health_server():
@@ -323,23 +329,27 @@ def main():
     health_thread = threading.Thread(target=start_health_server, daemon=True)
     health_thread.start()
     
-    persistence = PicklePersistence(filepath="bot_data.pickle")
-    
-    application = Application.builder().token(token).persistence(persistence).build()
+    try:
+        persistence = PicklePersistence(filepath="bot_data.pickle")
+        application = Application.builder().token(token).persistence(persistence).build()
 
-    # 1. Handler for Channel Posts
-    application.add_handler(MessageHandler(filters.ChatType.CHANNEL & filters.UpdateType.CHANNEL_POST, add_reaction_buttons))
-    
-    # 2. Handler for Group Messages
-    # We use reply_text approach now. We also filter for FORWARDED messages only,
-    # and further check specifically for channel forwards inside the handler.
-    application.add_handler(MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND) & filters.UpdateType.MESSAGE & filters.FORWARDED, add_reaction_buttons))
-    
-    # 3. Callback Query Handler
-    application.add_handler(CallbackQueryHandler(handle_callback))
+        # 1. Handler for Channel Posts
+        application.add_handler(MessageHandler(filters.ChatType.CHANNEL & filters.UpdateType.CHANNEL_POST, add_reaction_buttons))
 
-    print("Bot is starting... Press Ctrl+C to stop.")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+        # 2. Handler for Group Messages
+        # We use reply_text approach now. We also filter for FORWARDED messages only,
+        # and further check specifically for channel forwards inside the handler.
+        application.add_handler(MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND) & filters.UpdateType.MESSAGE & filters.FORWARDED, add_reaction_buttons))
+
+        # 3. Callback Query Handler
+        application.add_handler(CallbackQueryHandler(handle_callback))
+
+        print("Bot is starting... Press Ctrl+C to stop.")
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    except Exception as e:
+        logger.critical(f"Critical error in main loop: {e}", exc_info=True)
+        # Ensure the process exits so the container can restart
+        os._exit(1)
 
 
 if __name__ == "__main__":
