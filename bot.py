@@ -1,7 +1,8 @@
 import logging
 import os
+import sys
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from collections import defaultdict, deque
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -41,10 +42,15 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
 
 
 def start_health_server():
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    logger.info(f"Starting health check server on port {port}")
-    server.serve_forever()
+    try:
+        port = int(os.environ.get("PORT", 8080))
+        server = ThreadingHTTPServer(("0.0.0.0", port), HealthCheckHandler)
+        logger.info(f"Starting health check server on port {port}")
+        server.serve_forever()
+    except Exception as e:
+        logger.critical(f"Health check server failed to start or crashed: {e}")
+        # Forcefully exit the process so the platform knows something is wrong
+        os._exit(1)
 
 
 def get_keyboard(reactions_data, share_url=None, comment_url=None):
@@ -308,6 +314,10 @@ def main():
     """Start the bot."""
     # Get the token from environment variable or ask user to input it
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+
+    if token == "YOUR_BOT_TOKEN_HERE":
+        logger.critical("Bot token not found. Set TELEGRAM_BOT_TOKEN environment variable.")
+        sys.exit(1)
     
     # Start health check server in background thread
     health_thread = threading.Thread(target=start_health_server, daemon=True)
